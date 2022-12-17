@@ -1,13 +1,13 @@
 """
 Script to keep the screen awake and active for *different reasons*
 """
-
-import pyautogui, time
+import time
 import multiprocessing
 import PySimpleGUI as gui
+from directKeys.directKeys import PressKey, ReleaseKey, W
 
-#Disable failsafe as it will cause an exception if you accidentally move the mouse to the edge of the screen
-pyautogui.FAILSAFE=False 
+# Disable failsafe as it will cause an exception if you accidentally move the mouse to the edge of the screen
+
 
 def AwakeUI():
     """
@@ -23,7 +23,7 @@ def AwakeUI():
         [gui.Button('Start', key='-BUTTON-')]
     ]
 
-    window = gui.Window("Awake", layout=layout, size=(370,100))
+    window = gui.Window("Awake", layout=layout, size=(370, 100))
 
     p2 = multiprocessing.Process(target=keep_awake)
     is_awake = False
@@ -36,7 +36,7 @@ def AwakeUI():
             if p2.is_alive():
                 p2.terminate()
             break
-        if event == '-BUTTON-' and is_awake == False :
+        if event == '-BUTTON-' and is_awake == False:
             timer = time.time()
             p2 = multiprocessing.Process(target=keep_awake)
             p2.start()
@@ -46,18 +46,18 @@ def AwakeUI():
         elif event == '-BUTTON-' and is_awake == True:
             p2.terminate()
             window['-BUTTON-'].update('Start')
-            timer_finished = convert_to_minutes_seconds(round(time.time() - timer))
+            timer_finished = convert_to_minutes_seconds(
+                round(time.time() - timer))
             window['-OUTPUT-'].update(timer_finished)
             print(timer_finished)
             is_awake = False
-            
+
     window.close()
     if p2.is_alive():
         p2.terminate()
 
 
-
-def keep_awake(timer: float = 180):
+def keep_awake(timer: float = 30):
     """
     Function to start a the awake process, which will automatically trigger a "shift" press every given intervall 
 
@@ -65,13 +65,17 @@ def keep_awake(timer: float = 180):
     """
     print("Starting to work")
     while True:
-        print("Shift")
-        pyautogui.press("shift")
         time.sleep(timer)
-  
+        print("W")
+        PressKey(W)
+        time.sleep(1)
+        ReleaseKey(W)
+        # pyautogui.click()
+
+
 def convert_to_minutes_seconds(time: float) -> str:
     """ Small utility function to convert given time in seconds to a string representation with minutes and seconds displayed"""
-    minutes, seconds = divmod(time, 60) 
+    minutes, seconds = divmod(time, 60)
     minutes_text = ""
     if minutes > 0:
         minutes_text = f"{minutes} minutes "
@@ -83,6 +87,7 @@ def start():
     """Entrypoint for mulitprocessing UI and script execution"""
     p1 = multiprocessing.Process(target=AwakeUI)
     p1.start()
+
 
 if __name__ == "__main__":
     start()
