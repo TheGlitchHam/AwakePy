@@ -4,9 +4,13 @@ Script to keep the screen awake and active for *different reasons*
 import time
 import multiprocessing
 import PySimpleGUI as gui
-from directKeys.directKeys import PressKey, ReleaseKey, W
+from directKeys.directKeys import PressKey, ReleaseKey, W, LSHIFT, SPACE, K
 
 # Disable failsafe as it will cause an exception if you accidentally move the mouse to the edge of the screen
+
+button_dict = {"LSHIFT": LSHIFT, "SPACE": SPACE, }
+keys_list = [*button_dict.keys()]
+values_list = [*button_dict.values()]
 
 
 def AwakeUI():
@@ -20,15 +24,16 @@ def AwakeUI():
 
     layout = [
         [gui.Text("Awaiting to work", key="-OUTPUT-")],
-        [gui.Button('Start', key='-BUTTON-')]
+        [gui.Button("Start", key="-BUTTON-")],
+        [gui.Button(f"Pressing {keys_list[0]}", key="-SWITCH-")]
     ]
 
     window = gui.Window("Awake", layout=layout, size=(370, 100))
 
-    p2 = multiprocessing.Process(target=keep_awake)
     is_awake = False
-
     timer = 0.0
+    manager = multiprocessing.Manager()
+    use_primary_key = manager.Value("i", True)
 
     while True:
         event, values = window.read()
@@ -38,7 +43,8 @@ def AwakeUI():
             break
         if event == '-BUTTON-' and is_awake == False:
             timer = time.time()
-            p2 = multiprocessing.Process(target=keep_awake)
+            p2 = multiprocessing.Process(
+                target=keep_awake, args=(use_primary_key,))
             p2.start()
             window['-BUTTON-'].update('Stop')
             window['-OUTPUT-'].update("Active and working")
@@ -51,26 +57,34 @@ def AwakeUI():
             window['-OUTPUT-'].update(timer_finished)
             print(timer_finished)
             is_awake = False
+        elif event == "-SWITCH-":
+            use_primary_key.value = not use_primary_key.value
+            window["-SWITCH-"].update(
+                f"Pressing {keys_list[0]}") if use_primary_key.value else window["-SWITCH-"].update(f"Pressing {keys_list[1]}")
+            print(
+                f"Switching Button-Press to {keys_list[0] if use_primary_key.value else keys_list[1]}")
 
     window.close()
     if p2.is_alive():
         p2.terminate()
 
 
-def keep_awake(timer: float = 30):
+def keep_awake(use_primary_key, timer: float = 30):
     """
     Function to start a the awake process, which will automatically trigger a "shift" press every given intervall 
-
+    :param use_primary_key: ValueProxy of boolean to switch between primary an secondary key. Multiprocess safe
     :param timer: the intervall in which shift pressess are triggered. The standard is set to 180 seconds
     """
-    print("Starting to work")
+    print(f"Starting to work")
+    time.sleep(timer)
     while True:
-        time.sleep(timer)
-        print("W")
-        PressKey(W)
+        button_to_press = values_list[0] if use_primary_key.value else values_list[1]
+        print(
+            f"Pressing Button {keys_list[0] if use_primary_key.value else keys_list[1]}")
+        PressKey(button_to_press)
         time.sleep(1)
-        ReleaseKey(W)
-        # pyautogui.click()
+        ReleaseKey(button_to_press)
+        time.sleep(timer)
 
 
 def convert_to_minutes_seconds(time: float) -> str:
