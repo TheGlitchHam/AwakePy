@@ -4,11 +4,12 @@ Script to keep the screen awake and active for *different reasons*
 import time
 import multiprocessing
 import PySimpleGUI as gui
-from directKeys.directKeys import PressKey, ReleaseKey, W, LSHIFT, SPACE, K
+import pyautogui
+from directKeys.directKeys import PressKey, ReleaseKey,  LSHIFT, SPACE 
 
 # Disable failsafe as it will cause an exception if you accidentally move the mouse to the edge of the screen
 
-button_dict = {"LSHIFT": LSHIFT, "SPACE": SPACE, }
+button_dict = {"LSHIFT": (LSHIFT, "shift") , "SPACE": (SPACE, "space") }
 keys_list = [*button_dict.keys()]
 values_list = [*button_dict.values()]
 
@@ -23,8 +24,8 @@ def AwakeUI():
     gui.theme("DarkAmber")
 
     layout = [
-        [gui.Text("Awaiting to work", key="-OUTPUT-")],
-        [gui.Button("Start", key="-BUTTON-")],
+        [gui.Text("Awaiting to work", key="-OUTPUT-"), gui.Checkbox("Simulate physical button presses", default=True, key="-PHYSBTN-", enable_events=True)],
+        [gui.Button("Start", key="-START-")],
         [gui.Button(f"Pressing {keys_list[0]}", key="-SWITCH-")]
     ]
 
@@ -34,6 +35,7 @@ def AwakeUI():
     timer = 0.0
     manager = multiprocessing.Manager()
     use_primary_key = manager.Value("i", True)
+    use_phys_btns = manager.Value("o", True)
 
     while True:
         event, values = window.read()
@@ -41,35 +43,40 @@ def AwakeUI():
             if p2.is_alive():
                 p2.terminate()
             break
-        if event == '-BUTTON-' and is_awake == False:
-            timer = time.time()
-            p2 = multiprocessing.Process(
-                target=keep_awake, args=(use_primary_key,))
-            p2.start()
-            window['-BUTTON-'].update('Stop')
-            window['-OUTPUT-'].update("Active and working")
-            is_awake = True
-        elif event == '-BUTTON-' and is_awake == True:
-            p2.terminate()
-            window['-BUTTON-'].update('Start')
-            timer_finished = convert_to_minutes_seconds(
-                round(time.time() - timer))
-            window['-OUTPUT-'].update(timer_finished)
-            print(timer_finished)
-            is_awake = False
+        elif event == "-PHYSBTN-":
+            print(f"Switching to {'physical' if values['-PHYSBTN-'] else 'virtual'} buttons")        
+            use_phys_btns.value = values["-PHYSBTN-"]
+        elif event == '-START-':
+            if is_awake == False:
+                timer = time.time()
+                p2 = multiprocessing.Process(
+                    target=keep_awake, args=(use_primary_key, use_phys_btns, ))
+                p2.start()
+                window['-START-'].update('Stop')
+                window['-OUTPUT-'].update("Active and working")
+                is_awake = True
+            elif is_awake == True:
+
+                p2.terminate()
+                window['-START-'].update('Start')
+                timer_finished = convert_to_minutes_seconds(
+                    round(time.time() - timer))
+                window['-OUTPUT-'].update(timer_finished)
+                print(timer_finished)
+                is_awake = False
         elif event == "-SWITCH-":
             use_primary_key.value = not use_primary_key.value
             window["-SWITCH-"].update(
                 f"Pressing {keys_list[0]}") if use_primary_key.value else window["-SWITCH-"].update(f"Pressing {keys_list[1]}")
             print(
                 f"Switching Button-Press to {keys_list[0] if use_primary_key.value else keys_list[1]}")
-
+        
     window.close()
     if p2.is_alive():
         p2.terminate()
 
 
-def keep_awake(use_primary_key, timer: float = 30):
+def keep_awake(use_primary_key, use_phys_btns, timer: float = 30):
     """
     Function to start a the awake process, which will automatically trigger a "shift" press every given intervall 
     :param use_primary_key: ValueProxy of boolean to switch between primary an secondary key. Multiprocess safe
@@ -80,10 +87,13 @@ def keep_awake(use_primary_key, timer: float = 30):
     while True:
         button_to_press = values_list[0] if use_primary_key.value else values_list[1]
         print(
-            f"Pressing Button {keys_list[0] if use_primary_key.value else keys_list[1]}")
-        PressKey(button_to_press)
-        time.sleep(1)
-        ReleaseKey(button_to_press)
+            f"Pressing {'physical' if use_phys_btns.value else 'virtual'} Button {keys_list[0] if use_primary_key.value else keys_list[1]}")
+
+        if use_phys_btns.value:
+            PressKey(button_to_press[0])
+            ReleaseKey(button_to_press[0])
+        else: 
+            pyautogui.press(button_to_press[1])
         time.sleep(timer)
 
 
