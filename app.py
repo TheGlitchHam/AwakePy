@@ -31,7 +31,7 @@ def AwakeUI():
         [gui.Button(f"Pressing {keys_list[0]}", key="-SWITCH-")]
     ]
 
-    window = gui.Window("Awake", layout=layout, size=(370, 100))
+    window = gui.Window("Awake", layout=layout, size=(370, 130))
 
     is_awake = False
     timer = 0.0
