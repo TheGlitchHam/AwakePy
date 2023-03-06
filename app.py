@@ -13,6 +13,8 @@ button_dict = {"LSHIFT": (LSHIFT, "shift") , "SPACE": (SPACE, "space") }
 keys_list = [*button_dict.keys()]
 values_list = [*button_dict.values()]
 
+pyautogui.FAILSAFE = False
+
 
 def AwakeUI():
     """
